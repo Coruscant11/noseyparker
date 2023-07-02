@@ -7,7 +7,6 @@ use std::time::Instant;
 use tracing::{debug, debug_span, error, info, warn};
 
 use crate::args;
-
 use noseyparker::blob::Blob;
 use noseyparker::blob_id_set::BlobIdSet;
 use noseyparker::blob_metadata::BlobMetadata;
@@ -15,7 +14,7 @@ use noseyparker::datastore::Datastore;
 use noseyparker::defaults::DEFAULT_IGNORE_RULES;
 use noseyparker::git_binary::{CloneMode, Git};
 use noseyparker::git_url::GitUrl;
-use noseyparker::github;
+use noseyparker::{bitbucket_server, github};
 use noseyparker::input_enumerator::{open_git_repo, FileResult, FilesystemEnumerator};
 use noseyparker::location;
 use noseyparker::match_type::Match;
@@ -66,24 +65,27 @@ pub fn run(global_args: &args::GlobalArgs, args: &args::ScanArgs) -> Result<()> 
     };
 
     // ---------------------------------------------------------------------------------------------
-    // Enumerate any mentioned GitHub repositories; gather list of all repos to clone or update
+    // Enumerate any mentioned remote repositories; gather list of all repos to clone or update
     // ---------------------------------------------------------------------------------------------
     let repo_urls = {
-        let repo_specifiers = github::RepoSpecifiers {
+        let github_repo_specifiers = github::RepoSpecifiers {
             user: args.input_specifier_args.github_user.clone(),
             organization: args.input_specifier_args.github_organization.clone(),
         };
+        let github_api_url = args.input_specifier_args.github_api_url.clone();
+
+        let bitbucket_server_repo_specifiers = bitbucket_server::RepoSpecifiers {
+            project: args.input_specifier_args.bb_server_project.clone(),
+        };
+        let bitbucket_server_api_url = args.input_specifier_args.bb_server_api_url.clone();
+
         let mut repo_urls = args.input_specifier_args.git_url.clone();
-        if !repo_specifiers.is_empty() {
-            let mut progress = Progress::new_countup_spinner(
-                "Enumerating GitHub repositories...",
-                progress_enabled,
-            );
+
+        let mut closure_parse_repo_urls = |repo_batch_urls: Vec<String>, service_name: String, mut progress: Progress| {
             let mut num_found: u64 = 0;
-            let api_url = args.input_specifier_args.github_api_url.clone();
+
             for repo_string in
-                github::enumerate_repo_urls(&repo_specifiers, api_url, Some(&mut progress))
-                    .context("Failed to enumerate GitHub repositories")?
+            repo_batch_urls
             {
                 match GitUrl::from_str(&repo_string) {
                     Ok(repo_url) => repo_urls.push(repo_url),
@@ -98,10 +100,36 @@ pub fn run(global_args: &args::GlobalArgs, args: &args::ScanArgs) -> Result<()> 
             }
 
             progress.finish_with_message(format!(
-                "Found {} repositories from GitHub",
-                HumanCount(num_found)
+                "Found {} repositories from {}",
+                HumanCount(num_found),
+                service_name
             ));
+        };
+
+        if !bitbucket_server_repo_specifiers.is_empty() {
+            let service_name = "Bitbucket Server".to_string();
+
+            let mut progress = Progress::new_countup_spinner(
+                format!("Enumerating {} repositories...", service_name),
+                progress_enabled,
+            );
+
+            let bitbucket_server_enumerated_repos = bitbucket_server::enumerate_repo_urls(&bitbucket_server_repo_specifiers, bitbucket_server_api_url, Some(&mut progress)).context(format!("Failed to enumerate {} repositories", service_name))?;
+            closure_parse_repo_urls(bitbucket_server_enumerated_repos, service_name, progress);
         }
+
+        if !github_repo_specifiers.is_empty() {
+            let service_name = "GitHub".to_string();
+
+            let mut progress = Progress::new_countup_spinner(
+                format!("Enumerating {} repositories...", service_name),
+                progress_enabled,
+            );
+
+            let github_enumerated_repos = github::enumerate_repo_urls(&github_repo_specifiers, github_api_url, Some(&mut progress)).context("Failed to enumerate GitHub repositories")?;
+            closure_parse_repo_urls(github_enumerated_repos, service_name, progress);
+        }
+
         repo_urls.sort();
         repo_urls.dedup();
 

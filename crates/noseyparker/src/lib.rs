@@ -1,3 +1,4 @@
+pub mod bitbucket_server;
 pub mod blob;
 pub mod blob_id;
 pub mod blob_id_set;

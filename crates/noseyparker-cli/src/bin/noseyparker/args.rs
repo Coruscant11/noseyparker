@@ -420,7 +420,7 @@ impl std::fmt::Display for GitCloneMode {
 #[command(next_help_heading = "Input Specifier Options")]
 pub struct InputSpecifierArgs {
     /// Scan the specified file, directory, or local Git repository
-    #[arg(value_name="INPUT", required_unless_present_any(["github_user", "github_organization", "git_url"]), display_order=1)]
+    #[arg(value_name="INPUT", required_unless_present_any(["github_user", "github_organization", "git_url", "bb_server_project"]), display_order=1)]
     pub path_inputs: Vec<PathBuf>,
 
     /// Clone and scan the Git repository at the specified URL
@@ -454,7 +454,7 @@ pub struct InputSpecifierArgs {
     /// include the `api/v3` portion, e.g., `https://github.example.com/api/v3`.
     #[arg(
         long,
-        visible_alias = "api-url",
+        visible_alias = "github-api-url",
         value_name = "URL",
         default_value_t = Url::parse("https://api.github.com").expect("default API url should parse"),
         display_order = 30
@@ -464,6 +464,26 @@ pub struct InputSpecifierArgs {
     /// Use the specified method for cloning Git repositories
     #[arg(long, value_name = "MODE", display_order = 40, default_value_t=GitCloneMode::Bare)]
     pub git_clone_mode: GitCloneMode,
+
+    /// Use the specified URL for Bitbucket Server API access
+    ///
+    /// include the `api/version` portion, e.g., `https://bitbucket.example.com/rest/api/1.0`.
+    #[arg(
+        long,
+        visible_alias = "bb-server-api-url",
+        value_name = "URL",
+        display_order = 40
+    )]
+    pub bb_server_api_url: Url,
+
+    #[arg(
+        long,
+        visible_alias = "bb-server-project",
+        value_name = "NAME",
+        requires = "bb_server_api_url",
+        display_order = 50
+    )]
+    pub bb_server_project: Vec<String>,
 }
 
 /// This struct represents options to control content discovery.

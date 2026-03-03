@@ -27,3 +27,7 @@ similar = { opt-level = 3 }
 # Using optimization on the vectorscan packages saves ~6s on each integration test case!
 vectorscan-rs = { opt-level = 3 }
 vectorscan-rs-sys = { opt-level = 3 }
+
+[patch.crates-io]
+# Temporary override until a crates.io release includes Windows GNU/MSYS2 fixes.
+vectorscan-rs = { git = "https://github.com/Coruscant11/vectorscan-rs.git", rev = "590d063727c757853bfc9909e37edadd02fbc034" }

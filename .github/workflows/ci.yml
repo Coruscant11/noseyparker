@@ -140,19 +140,54 @@ jobs:
           check_docs: false
           run_tests: true
 
+        - name: windows-2025.x86_64.stable.release.gnu
+          os: windows-2025
+          rust: stable
+          profile: release
+          features: -F release
+          install_dependencies: echo windows
+          cpu_info_cmd: echo windows
+
+          check_docs: false
+          run_tests: false
+          rust_target: x86_64-pc-windows-gnu
+
     steps:
     - uses: actions/checkout@v4
       with:
         persist-credentials: false
 
+    - name: Setup MSYS2
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-boost
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
+          mingw-w64-x86_64-pkgconf
+          mingw-w64-x86_64-toolchain
+          patch
+
     - name: Install dependencies
       run: ${{ matrix.install_dependencies }}
 
     - name: Install Rust toolchain
+      if: ${{ !startsWith(matrix.os, 'windows-') }}
       id: install-rust-toolchain
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust }}
+
+    - name: Install Rust toolchain (Windows GNU)
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      id: install-rust-toolchain-windows
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        targets: ${{ matrix.rust_target }}
 
     - name: Print CPU info
       run: ${{ matrix.cpu_info_cmd }}
@@ -164,20 +199,49 @@ jobs:
         key: ${{ matrix.name }}
 
     - name: Build tests
-      if: ${{ matrix.run_tests }}
+      if: ${{ matrix.run_tests && !startsWith(matrix.os, 'windows-') }}
       run: cargo test --no-run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --timings
 
+    - name: Build tests (Windows GNU)
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      shell: msys2 {0}
+      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo test --no-run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} --timings
+
     - name: Nosey Parker version
+      if: ${{ !startsWith(matrix.os, 'windows-') }}
       run: cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} -- --version
 
+    - name: Nosey Parker version (Windows GNU)
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      shell: msys2 {0}
+      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} -- --version
+
     - name: Run tests
-      if: ${{ matrix.run_tests }}
+      if: ${{ matrix.run_tests && !startsWith(matrix.os, 'windows-') }}
       env:
         # We use the GitHub Actions automatic token when running tests, to avoid
         # spurious failures from rate limiting when testing Nosey Parker's github
         # enumeration capabilities.
         NP_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: cargo test --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --timings
+
+    - name: Run tests (Windows GNU)
+      if: ${{ matrix.run_tests && startsWith(matrix.os, 'windows-') }}
+      shell: msys2 {0}
+      env:
+        # We use the GitHub Actions automatic token when running tests, to avoid
+        # spurious failures from rate limiting when testing Nosey Parker's github
+        # enumeration capabilities.
+        NP_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo test --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} --timings
+
+    - name: Upload Windows CLI artifact
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: noseyparker.${{ matrix.name }}.exe
+        path: target/${{ matrix.rust_target }}/${{ matrix.profile }}/noseyparker-cli.exe
+        if-no-files-found: error
 
     - name: Check documentation
       if: ${{ matrix.check_docs }}

@@ -62,6 +62,7 @@ fn configure_tracing(global_args: &GlobalArgs) -> Result<()> {
 }
 
 /// Set the process rlimits according to the global arguments.
+#[cfg(not(windows))]
 fn configure_rlimits(global_args: &GlobalArgs) -> Result<()> {
     use std::cmp::max;
 
@@ -73,6 +74,17 @@ fn configure_rlimits(global_args: &GlobalArgs) -> Result<()> {
     let hard = max(hard, nofile_limit);
     Resource::NOFILE.set(soft, hard)?;
     debug!("Set {} limit to ({}, {})", Resource::NOFILE.as_name(), soft, hard);
+    Ok(())
+}
+
+/// Set the process rlimits according to the global arguments.
+#[cfg(windows)]
+fn configure_rlimits(global_args: &GlobalArgs) -> Result<()> {
+    // Windows does not expose POSIX rlimits through the `rlimit` crate.
+    // Keep startup behavior consistent by treating this as a no-op.
+    if global_args.advanced.rlimit_nofile != 16_384 {
+        debug!("Ignoring --rlimit-nofile={} on Windows", global_args.advanced.rlimit_nofile);
+    }
     Ok(())
 }
 

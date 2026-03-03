@@ -16,6 +16,28 @@ pub use insta::{assert_json_snapshot, assert_snapshot, with_settings};
 pub use predicates::prelude::*;
 pub use predicates::str::RegexPredicate;
 
+/// Normalize process exit status formatting for snapshot tests.
+///
+/// `std::process::ExitStatus` renders as `exit status: N` on Unix and
+/// `exit code: N` on Windows. Converting through `code()` gives us a stable
+/// cross-platform string and avoids per-platform snapshot files.
+pub fn normalize_exit_status_for_snapshot(status: std::process::ExitStatus) -> String {
+    match status.code() {
+        Some(code) => format!("exit status: {code}"),
+        None => status.to_string(),
+    }
+}
+
+/// Normalize text output for snapshot tests.
+///
+/// Windows command output uses CRLF line endings while snapshots in this
+/// repository use LF. Normalizing line endings keeps snapshots portable.
+pub fn normalize_text_for_snapshot(bytes: &[u8]) -> String {
+    String::from_utf8(bytes.to_vec())
+        .expect("command output should be valid UTF-8")
+        .replace("\r\n", "\n")
+}
+
 /// Use `insta` to do snapshot testing against a command's exit code, stdout, and stderr.
 ///
 /// The given expression should be an `assert_cmd::assert::Assert`.
@@ -24,11 +46,11 @@ macro_rules! assert_cmd_snapshot {
     ($cmd:expr) => {
         let cmd = $cmd;
         let output = cmd.get_output();
-        let status = output.status;
+        let status = $crate::common::normalize_exit_status_for_snapshot(output.status);
         assert_snapshot!(status);
-        let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+        let stdout = $crate::common::normalize_text_for_snapshot(&output.stdout);
         assert_snapshot!(stdout);
-        let stderr = String::from_utf8(output.stderr.clone()).unwrap();
+        let stderr = $crate::common::normalize_text_for_snapshot(&output.stderr);
         assert_snapshot!(stderr);
     };
 }

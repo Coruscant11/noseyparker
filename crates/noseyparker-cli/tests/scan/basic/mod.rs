@@ -58,8 +58,15 @@ fn scan_file_symlink() {
     let empty_file = scan_env.input_file("empty_file");
     let input = scan_env.child("empty_file_link");
     input.symlink_to_file(empty_file).unwrap();
-    noseyparker_success!("scan", "--datastore", scan_env.dspath(), input.path())
-        .stdout(match_nothing_scanned());
+    // On Windows this helper can create a link type that is treated as a file
+    // by the enumerator; on Unix it is recognized as a symlink and skipped.
+    let expected = if cfg!(windows) {
+        match_scan_stats("0 B", 1, 0, 0)
+    } else {
+        match_nothing_scanned()
+    };
+
+    noseyparker_success!("scan", "--datastore", scan_env.dspath(), input.path()).stdout(expected);
 }
 
 #[test]
@@ -121,7 +128,11 @@ fn scan_git_emptyrepo() {
     let repo = scan_env.input_dir("input_repo");
     create_empty_git_repo(repo.path());
 
-    let path = format!("file://{}", repo.display());
+    // Use URL construction that is valid on all platforms (including
+    // Windows drive-letter paths).
+    let path = url::Url::from_directory_path(repo.path())
+        .expect("repo path should convert to file URL")
+        .to_string();
     noseyparker_success!("scan", "-d", scan_env.dspath(), path)
         .stdout(is_match(r"(?m)^Scanned .* from \d+ blobs in .*; 0/0 new matches$"));
 }

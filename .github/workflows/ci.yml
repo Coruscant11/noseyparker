@@ -218,12 +218,12 @@ jobs:
 
     - name: Nosey Parker help
       if: ${{ !startsWith(matrix.os, 'windows-') }}
-      run: ./target/${{ matrix.profile }}/noseyparker-cli --help
+      run: cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --bin noseyparker-cli -- --help
 
     - name: Nosey Parker help (Windows GNU)
       if: ${{ startsWith(matrix.os, 'windows-') }}
       shell: msys2 {0}
-      run: ./target/${{ matrix.rust_target }}/${{ matrix.profile }}/noseyparker-cli.exe --help
+      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} --bin noseyparker-cli -- --help
 
     - name: Run tests
       if: ${{ matrix.run_tests && !startsWith(matrix.os, 'windows-') }}

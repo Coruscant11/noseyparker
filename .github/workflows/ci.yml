@@ -149,7 +149,7 @@ jobs:
           cpu_info_cmd: echo windows
 
           check_docs: false
-          run_tests: false
+          run_tests: true
           rust_target: x86_64-pc-windows-gnu
 
     steps:
@@ -166,6 +166,7 @@ jobs:
         install: >-
           mingw-w64-x86_64-boost
           mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-git
           mingw-w64-x86_64-ninja
           mingw-w64-x86_64-pkgconf
           mingw-w64-x86_64-toolchain

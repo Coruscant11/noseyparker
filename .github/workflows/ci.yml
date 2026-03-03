@@ -149,7 +149,7 @@ jobs:
           cpu_info_cmd: echo windows
 
           check_docs: false
-          run_tests: false
+          run_tests: true
           rust_target: x86_64-pc-windows-gnu
 
     steps:

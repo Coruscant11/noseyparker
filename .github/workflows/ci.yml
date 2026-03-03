@@ -207,14 +207,23 @@ jobs:
       shell: msys2 {0}
       run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo test --no-run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} --timings
 
-    - name: Nosey Parker version
+    - name: Build Nosey Parker CLI
       if: ${{ !startsWith(matrix.os, 'windows-') }}
-      run: cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} -- --version
+      run: cargo build --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --bin noseyparker-cli --timings
 
-    - name: Nosey Parker version (Windows GNU)
+    - name: Build Nosey Parker CLI (Windows GNU)
       if: ${{ startsWith(matrix.os, 'windows-') }}
       shell: msys2 {0}
-      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo run --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} -- --version
+      run: PATH="$(cygpath "$CARGO_HOME")/bin:$PATH" cargo build --locked --verbose --profile=${{ matrix.profile }} ${{ matrix.features }} --target=${{ matrix.rust_target }} --bin noseyparker-cli --timings
+
+    - name: Nosey Parker help
+      if: ${{ !startsWith(matrix.os, 'windows-') }}
+      run: ./target/${{ matrix.profile }}/noseyparker-cli --help
+
+    - name: Nosey Parker help (Windows GNU)
+      if: ${{ startsWith(matrix.os, 'windows-') }}
+      shell: msys2 {0}
+      run: ./target/${{ matrix.rust_target }}/${{ matrix.profile }}/noseyparker-cli.exe --help
 
     - name: Run tests
       if: ${{ matrix.run_tests && !startsWith(matrix.os, 'windows-') }}
